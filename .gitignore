@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+nba-frontend/node_modules/
+
+# Environment files & secrets
+.env
+.env.local
+.env.*.local
+
+# Production builds
+build/
+dist/
+nba-frontend/build/
+
+# Testing
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
