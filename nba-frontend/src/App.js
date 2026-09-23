@@ -1,14 +1,25 @@
 // src/App.js
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import "./App.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+const COLUMNS = [
+  { key: "player", label: "Player" },
+  { key: "team", label: "Team" },
+  { key: "opponent", label: "Opponent" },
+  { key: "points", label: "PTS" },
+  { key: "rebounds", label: "REB" },
+  { key: "assists", label: "AST" },
+  { key: "gameDate", label: "Date" },
+];
 
 function App() {
   const [logs, setLogs] = useState([]);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -42,6 +53,56 @@ function App() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      // 1st click on new column -> ascending
+      if (prev.key !== key) {
+        return { key, direction: "asc" };
+      }
+      // 1st click on same column was asc -> 2nd click: descending
+      if (prev.direction === "asc") {
+        return { key, direction: "desc" };
+      }
+      // 2nd click on same column was desc -> 3rd click: reset (no sort)
+      if (prev.direction === "desc") {
+        return { key: null, direction: null };
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const sortedLogs = useMemo(() => {
+    if (!sortConfig.key || !sortConfig.direction) {
+      return logs;
+    }
+
+    return [...logs].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+
+      if (aVal === undefined || aVal === null) return 1;
+      if (bVal === undefined || bVal === null) return -1;
+
+      if (sortConfig.key === "gameDate") {
+        const aTime = new Date(aVal).getTime();
+        const bTime = new Date(bVal).getTime();
+        if (aTime < bTime) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aTime > bTime) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      }
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+      }
+
+      const strA = String(aVal).toLowerCase();
+      const strB = String(bVal).toLowerCase();
+      if (strA < strB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (strA > strB) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [logs, sortConfig]);
 
   return (
     <div className="app-container">
@@ -97,24 +158,64 @@ function App() {
             <table>
               <thead>
                 <tr>
-                  <th>Player</th>
-                  <th>Team</th>
-                  <th>Opponent</th>
-                  <th>PTS</th>
-                  <th>REB</th>
-                  <th>AST</th>
-                  <th>Date</th>
+                  {COLUMNS.map((col) => {
+                    const isSorted = sortConfig.key === col.key;
+                    const arrow = isSorted
+                      ? sortConfig.direction === "asc"
+                        ? "▲"
+                        : sortConfig.direction === "desc"
+                        ? "▼"
+                        : null
+                      : null;
+
+                    return (
+                      <th
+                        key={col.key}
+                        className="sortable"
+                        onClick={() => handleSort(col.key)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSort(col.key);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                        aria-sort={
+                          isSorted
+                            ? sortConfig.direction === "asc"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
+                        }
+                        title={`Sort by ${col.label}`}
+                      >
+                        <span className="th-content">
+                          <span>{col.label}</span>
+                          {arrow && (
+                            <span
+                              className="sort-arrow"
+                              data-testid={`sort-arrow-${col.key}`}
+                              aria-hidden="true"
+                            >
+                              {arrow}
+                            </span>
+                          )}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {logs.length === 0 ? (
+                {sortedLogs.length === 0 ? (
                   <tr>
                     <td colSpan="7" style={{ textAlign: "center", padding: "2rem" }}>
                       No game logs found.
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
+                  sortedLogs.map((log) => (
                     <tr key={log._id}>
                       <td className="player-name">{log.player}</td>
                       <td>
