@@ -192,15 +192,17 @@ function App() {
                       >
                         <span className="th-content">
                           <span>{col.label}</span>
-                          {arrow && (
-                            <span
-                              className="sort-arrow"
-                              data-testid={`sort-arrow-${col.key}`}
-                              aria-hidden="true"
-                            >
-                              {arrow}
-                            </span>
-                          )}
+                          <span className="sort-arrow-slot">
+                            {arrow && (
+                              <span
+                                className="sort-arrow"
+                                data-testid={`sort-arrow-${col.key}`}
+                                aria-hidden="true"
+                              >
+                                {arrow}
+                              </span>
+                            )}
+                          </span>
                         </span>
                       </th>
                     );
