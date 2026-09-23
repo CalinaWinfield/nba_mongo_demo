@@ -108,6 +108,7 @@ function App() {
     <div className="app-container">
       <header className="header">
         <h1 className="title">🏀 Recent NBA Game Logs</h1>
+        <h3>Most recent 20 games</h3>
         {status && (
           <span
             className={`status-badge ${
