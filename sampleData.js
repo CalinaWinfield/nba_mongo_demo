@@ -1,150 +1,289 @@
 /**
- * sampleData.js — NBA sample game-log documents
- * Shared between mongodbExample.js (seed script) and server.js (in-memory demo fallback)
+ * sampleData.js — NBA sample games & player documents
+ * Matches the schema in stats.games (Home/Away team matchup with nested player box scores)
  */
 
-function daysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d;
-}
-
-function getSampleGameLogs() {
+function getSampleGames() {
   return [
     {
-      _id: "660000000000000000000001",
-      player: "LeBron James",
-      team: "LAL",
-      opponent: "GSW",
-      points: 32,
-      rebounds: 8,
-      assists: 11,
-      steals: 1,
-      blocks: 0,
-      minutesPlayed: 36,
-      gameDate: daysAgo(0),
+      _id: "69e79b9d56cd4d0b6aed1a8f",
+      game_id: 38,
+      game_date: "2026-01-09",
+      home_team: {
+        team_id: 8,
+        team_name: "Denver Nuggets",
+      },
+      away_team: {
+        team_id: 1,
+        team_name: "Atlanta Hawks",
+      },
+      players: [
+        {
+          player_id: 107,
+          name: "Nikola Jokic",
+          team_id: 8,
+          stats: {
+            points: 34,
+            rebounds: 13,
+            assists: 9,
+            steals: 1,
+            blocks: 2,
+            minutes: 36,
+          },
+        },
+        {
+          player_id: 108,
+          name: "Jamal Murray",
+          team_id: 8,
+          stats: {
+            points: 26,
+            rebounds: 4,
+            assists: 7,
+            steals: 2,
+            blocks: 0,
+            minutes: 34,
+          },
+        },
+        {
+          player_id: 103,
+          name: "Trae Young",
+          team_id: 1,
+          stats: {
+            points: 28,
+            rebounds: 3,
+            assists: 10,
+            steals: 1,
+            blocks: 0,
+            minutes: 37,
+          },
+        },
+        {
+          player_id: 104,
+          name: "Dejounte Murray",
+          team_id: 1,
+          stats: {
+            points: 20,
+            rebounds: 6,
+            assists: 5,
+            steals: 1,
+            blocks: 0,
+            minutes: 35,
+          },
+        },
+      ],
     },
     {
-      _id: "660000000000000000000002",
-      player: "Stephen Curry",
-      team: "GSW",
-      opponent: "LAL",
-      points: 41,
-      rebounds: 5,
-      assists: 6,
-      steals: 2,
-      blocks: 0,
-      minutesPlayed: 38,
-      gameDate: daysAgo(0),
+      _id: "69e79b9d56cd4d0b6aed1a90",
+      game_id: 41,
+      game_date: "2026-01-15",
+      home_team: {
+        team_id: 3,
+        team_name: "San Antonio Spurs",
+      },
+      away_team: {
+        team_id: 9,
+        team_name: "Milwaukee Bucks",
+      },
+      players: [
+        {
+          player_id: 105,
+          name: "Victor Wembanyama",
+          team_id: 3,
+          stats: {
+            points: 31,
+            rebounds: 11,
+            assists: 4,
+            steals: 1,
+            blocks: 3,
+            minutes: 33,
+          },
+        },
+        {
+          player_id: 106,
+          name: "Keldon Johnson",
+          team_id: 3,
+          stats: {
+            points: 17,
+            rebounds: 6,
+            assists: 2,
+            steals: 1,
+            blocks: 0,
+            minutes: 29,
+          },
+        },
+        {
+          player_id: 109,
+          name: "Giannis Antetokounmpo",
+          team_id: 9,
+          stats: {
+            points: 35,
+            rebounds: 12,
+            assists: 5,
+            steals: 1,
+            blocks: 1,
+            minutes: 36,
+          },
+        },
+        {
+          player_id: 110,
+          name: "Damian Lillard",
+          team_id: 9,
+          stats: {
+            points: 29,
+            rebounds: 4,
+            assists: 9,
+            steals: 1,
+            blocks: 0,
+            minutes: 37,
+          },
+        },
+      ],
     },
     {
-      _id: "660000000000000000000003",
-      player: "Nikola Jokic",
-      team: "DEN",
-      opponent: "PHX",
-      points: 27,
-      rebounds: 14,
-      assists: 9,
-      steals: 1,
-      blocks: 2,
-      minutesPlayed: 34,
-      gameDate: daysAgo(2),
-    },
-    {
-      _id: "660000000000000000000004",
-      player: "Jayson Tatum",
-      team: "BOS",
-      opponent: "MIA",
-      points: 35,
-      rebounds: 9,
-      assists: 4,
-      steals: 0,
-      blocks: 1,
-      minutesPlayed: 37,
-      gameDate: daysAgo(3),
-    },
-    {
-      _id: "660000000000000000000005",
-      player: "Giannis Antetokounmpo",
-      team: "MIL",
-      opponent: "CHI",
-      points: 44,
-      rebounds: 12,
-      assists: 6,
-      steals: 1,
-      blocks: 3,
-      minutesPlayed: 35,
-      gameDate: daysAgo(4),
-    },
-    {
-      _id: "660000000000000000000006",
-      player: "Kevin Durant",
-      team: "PHX",
-      opponent: "DEN",
-      points: 38,
-      rebounds: 7,
-      assists: 5,
-      steals: 0,
-      blocks: 2,
-      minutesPlayed: 40,
-      gameDate: daysAgo(5),
-    },
-    {
-      _id: "660000000000000000000007",
-      player: "Luka Doncic",
-      team: "DAL",
-      opponent: "SAS",
-      points: 49,
-      rebounds: 11,
-      assists: 8,
-      steals: 2,
-      blocks: 0,
-      minutesPlayed: 39,
-      gameDate: daysAgo(7),
-    },
-    {
-      _id: "660000000000000000000008",
-      player: "Joel Embiid",
-      team: "PHI",
-      opponent: "NYK",
-      points: 33,
-      rebounds: 10,
-      assists: 3,
-      steals: 1,
-      blocks: 4,
-      minutesPlayed: 33,
-      gameDate: daysAgo(9),
-    },
-    {
-      _id: "660000000000000000000009",
-      player: "Anthony Davis",
-      team: "LAL",
-      opponent: "MEM",
-      points: 28,
-      rebounds: 15,
-      assists: 2,
-      steals: 0,
-      blocks: 3,
-      minutesPlayed: 36,
-      gameDate: daysAgo(11),
-    },
-    {
-      _id: "660000000000000000000010",
-      player: "Devin Booker",
-      team: "PHX",
-      opponent: "UTA",
-      points: 37,
-      rebounds: 4,
-      assists: 7,
-      steals: 1,
-      blocks: 0,
-      minutesPlayed: 38,
-      gameDate: daysAgo(13),
+      _id: "69e79b9d56cd4d0b6aed1a91",
+      game_id: 67,
+      game_date: "2026-03-14",
+      home_team: {
+        team_id: 1,
+        team_name: "Atlanta Hawks",
+      },
+      away_team: {
+        team_id: 9,
+        team_name: "Milwaukee Bucks",
+      },
+      players: [
+        {
+          player_id: 103,
+          name: "Trae Young",
+          team_id: 1,
+          stats: {
+            points: 27,
+            rebounds: 4,
+            assists: 11,
+            steals: 1,
+            blocks: 0,
+            minutes: 36,
+          },
+        },
+        {
+          player_id: 104,
+          name: "Dejounte Murray",
+          team_id: 1,
+          stats: {
+            points: 18,
+            rebounds: 7,
+            assists: 3,
+            steals: 2,
+            blocks: 0,
+            minutes: 34,
+          },
+        },
+        {
+          player_id: 109,
+          name: "Giannis Antetokounmpo",
+          team_id: 9,
+          stats: {
+            points: 33,
+            rebounds: 13,
+            assists: 6,
+            steals: 1,
+            blocks: 1,
+            minutes: 37,
+          },
+        },
+        {
+          player_id: 110,
+          name: "Damian Lillard",
+          team_id: 9,
+          stats: {
+            points: 28,
+            rebounds: 3,
+            assists: 8,
+            steals: 1,
+            blocks: 0,
+            minutes: 36,
+          },
+        },
+      ],
     },
   ];
 }
 
+/**
+ * Calculates team point totals for each game document
+ */
+function enrichGameWithScores(game) {
+  const homeTeamId = game.home_team?.team_id;
+  const awayTeamId = game.away_team?.team_id;
+
+  let homeScore = 0;
+  let awayScore = 0;
+
+  (game.players || []).forEach((p) => {
+    const pts = p.stats?.points || 0;
+    if (p.team_id === homeTeamId) {
+      homeScore += pts;
+    } else if (p.team_id === awayTeamId) {
+      awayScore += pts;
+    }
+  });
+
+  return {
+    ...game,
+    home_score: homeScore,
+    away_score: awayScore,
+  };
+}
+
+/**
+ * Flattens nested game players into individual player log entries
+ */
+function flattenGamePlayers(games) {
+  const flat = [];
+  (games || []).forEach((game) => {
+    const homeTeam = game.home_team || {};
+    const awayTeam = game.away_team || {};
+
+    (game.players || []).forEach((p) => {
+      const isHome = p.team_id === homeTeam.team_id;
+      const team = isHome ? homeTeam.team_name : awayTeam.team_name;
+      const opponent = isHome ? awayTeam.team_name : homeTeam.team_name;
+
+      flat.push({
+        _id: `${game.game_id || game._id}_${p.player_id}`,
+        game_id: game.game_id,
+        game_date: game.game_date,
+        gameDate: game.game_date, // backward compatibility
+        player_id: p.player_id,
+        player: p.name,
+        name: p.name,
+        team_id: p.team_id,
+        team: team || "N/A",
+        opponent: opponent || "N/A",
+        is_home: isHome,
+        points: p.stats?.points ?? 0,
+        rebounds: p.stats?.rebounds ?? 0,
+        assists: p.stats?.assists ?? 0,
+        steals: p.stats?.steals ?? 0,
+        blocks: p.stats?.blocks ?? 0,
+        minutes: p.stats?.minutes ?? 0,
+        stats: p.stats || {},
+      });
+    });
+  });
+  return flat;
+}
+
+/**
+ * Backward compatibility alias for existing code
+ */
+function getSampleGameLogs() {
+  return flattenGamePlayers(getSampleGames());
+}
+
 module.exports = {
-  daysAgo,
+  getSampleGames,
+  enrichGameWithScores,
+  flattenGamePlayers,
   getSampleGameLogs,
 };

@@ -4,21 +4,73 @@ import "./App.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-const COLUMNS = [
+const ALL_PLAYERS_COLUMNS = [
   { key: "player", label: "Player" },
   { key: "team", label: "Team" },
   { key: "opponent", label: "Opponent" },
   { key: "points", label: "PTS" },
   { key: "rebounds", label: "REB" },
   { key: "assists", label: "AST" },
-  { key: "gameDate", label: "Date" },
+  { key: "steals", label: "STL" },
+  { key: "blocks", label: "BLK" },
+  { key: "minutes", label: "MIN" },
+  { key: "game_date", label: "Date" },
 ];
 
+const GAME_BOXSCORE_COLUMNS = [
+  { key: "player", label: "Player" },
+  { key: "team", label: "Team" },
+  { key: "points", label: "PTS" },
+  { key: "rebounds", label: "REB" },
+  { key: "assists", label: "AST" },
+  { key: "steals", label: "STL" },
+  { key: "blocks", label: "BLK" },
+  { key: "minutes", label: "MIN" },
+];
+
+function sortRecords(items, sortConfig) {
+  if (!sortConfig.key || !sortConfig.direction) {
+    return items;
+  }
+
+  return [...items].sort((a, b) => {
+    const aVal = a[sortConfig.key];
+    const bVal = b[sortConfig.key];
+
+    if (aVal === undefined || aVal === null) return 1;
+    if (bVal === undefined || bVal === null) return -1;
+
+    if (sortConfig.key === "game_date" || sortConfig.key === "gameDate") {
+      const aTime = new Date(aVal).getTime();
+      const bTime = new Date(bVal).getTime();
+      if (aTime < bTime) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aTime > bTime) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    }
+
+    if (typeof aVal === "number" && typeof bVal === "number") {
+      return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+    }
+
+    const strA = String(aVal).toLowerCase();
+    const strB = String(bVal).toLowerCase();
+    if (strA < strB) return sortConfig.direction === "asc" ? -1 : 1;
+    if (strA > strB) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+}
+
 function App() {
-  const [logs, setLogs] = useState([]);
+  const [games, setGames] = useState([]);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // View state: 'matchups' or 'players'
+  const [activeTab, setActiveTab] = useState("matchups");
+  const [selectedGameFilter, setSelectedGameFilter] = useState("all");
+
+  // Sorting state for player tables
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
 
   const fetchData = useCallback(async () => {
@@ -26,18 +78,54 @@ function App() {
     setError(null);
 
     try {
-      // Fetch game logs and server status in parallel
-      const [logsRes, statusRes] = await Promise.all([
-        fetch(`${API_URL}/api/gamelogs`),
+      // Parallel fetch for games & server status
+      const [gamesRes, statusRes] = await Promise.all([
+        fetch(`${API_URL}/api/games`).catch(() => null),
         fetch(`${API_URL}/api/status`).catch(() => null),
       ]);
 
-      if (!logsRes.ok) {
-        throw new Error(`Server returned HTTP ${logsRes.status}`);
+      let loadedGames = [];
+
+      if (gamesRes && gamesRes.ok) {
+        loadedGames = await gamesRes.json();
+      } else {
+        // Fallback to /api/gamelogs if /api/games isn't available
+        const logsRes = await fetch(`${API_URL}/api/gamelogs`);
+        if (!logsRes.ok) {
+          throw new Error(`Server returned HTTP ${logsRes.status}`);
+        }
+        const logsData = await logsRes.json();
+        // If data is already games array
+        if (Array.isArray(logsData) && logsData[0]?.home_team) {
+          loadedGames = logsData;
+        } else {
+          // Wrap flat logs in synthetic game representation
+          loadedGames = [
+            {
+              _id: "legacy_game",
+              game_id: 1,
+              game_date: logsData[0]?.gameDate || "2026-01-01",
+              home_team: { team_id: 1, team_name: "Home Team" },
+              away_team: { team_id: 2, team_name: "Away Team" },
+              players: logsData.map((l, idx) => ({
+                player_id: idx + 1,
+                name: l.player || l.name,
+                team_id: 1,
+                stats: {
+                  points: l.points ?? 0,
+                  rebounds: l.rebounds ?? 0,
+                  assists: l.assists ?? 0,
+                  steals: l.steals ?? 0,
+                  blocks: l.blocks ?? 0,
+                  minutes: l.minutes ?? 0,
+                },
+              })),
+            },
+          ];
+        }
       }
 
-      const logsData = await logsRes.json();
-      setLogs(logsData);
+      setGames(loadedGames);
 
       if (statusRes && statusRes.ok) {
         const statusData = await statusRes.json();
@@ -60,11 +148,11 @@ function App() {
       if (prev.key !== key) {
         return { key, direction: "asc" };
       }
-      // 1st click on same column was asc -> 2nd click: descending
+      // 1st click was asc -> 2nd click: descending
       if (prev.direction === "asc") {
         return { key, direction: "desc" };
       }
-      // 2nd click on same column was desc -> 3rd click: reset (no sort)
+      // 2nd click was desc -> 3rd click: reset
       if (prev.direction === "desc") {
         return { key: null, direction: null };
       }
@@ -72,43 +160,117 @@ function App() {
     });
   };
 
-  const sortedLogs = useMemo(() => {
-    if (!sortConfig.key || !sortConfig.direction) {
-      return logs;
-    }
+  // Flatten games into individual player records for leaderboard
+  const allPlayers = useMemo(() => {
+    const list = [];
+    games.forEach((game) => {
+      const homeTeam = game.home_team || {};
+      const awayTeam = game.away_team || {};
 
-    return [...logs].sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
+      (game.players || []).forEach((p) => {
+        const isHome = p.team_id === homeTeam.team_id;
+        const team = isHome ? homeTeam.team_name : awayTeam.team_name;
+        const opponent = isHome ? awayTeam.team_name : homeTeam.team_name;
 
-      if (aVal === undefined || aVal === null) return 1;
-      if (bVal === undefined || bVal === null) return -1;
-
-      if (sortConfig.key === "gameDate") {
-        const aTime = new Date(aVal).getTime();
-        const bTime = new Date(bVal).getTime();
-        if (aTime < bTime) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aTime > bTime) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      }
-
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
-      }
-
-      const strA = String(aVal).toLowerCase();
-      const strB = String(bVal).toLowerCase();
-      if (strA < strB) return sortConfig.direction === "asc" ? -1 : 1;
-      if (strA > strB) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
+        list.push({
+          _id: `${game.game_id || game._id}_${p.player_id}`,
+          game_id: game.game_id,
+          game_date: game.game_date,
+          player_id: p.player_id,
+          player: p.name,
+          team: team || "N/A",
+          opponent: opponent || "N/A",
+          is_home: isHome,
+          points: p.stats?.points ?? 0,
+          rebounds: p.stats?.rebounds ?? 0,
+          assists: p.stats?.assists ?? 0,
+          steals: p.stats?.steals ?? 0,
+          blocks: p.stats?.blocks ?? 0,
+          minutes: p.stats?.minutes ?? 0,
+        });
+      });
     });
-  }, [logs, sortConfig]);
+    return list;
+  }, [games]);
+
+  // Filtered games based on selection
+  const filteredGames = useMemo(() => {
+    if (selectedGameFilter === "all") return games;
+    return games.filter((g) => String(g.game_id) === String(selectedGameFilter));
+  }, [games, selectedGameFilter]);
+
+  // Sorted players for All Players tab
+  const sortedPlayers = useMemo(() => {
+    return sortRecords(allPlayers, sortConfig);
+  }, [allPlayers, sortConfig]);
+
+  // Helper to render sortable table headers
+  const renderSortableHeaders = (columns) => (
+    <thead>
+      <tr>
+        {columns.map((col) => {
+          const isSorted = sortConfig.key === col.key;
+          const arrow = isSorted
+            ? sortConfig.direction === "asc"
+              ? "▲"
+              : sortConfig.direction === "desc"
+              ? "▼"
+              : null
+            : null;
+
+          return (
+            <th
+              key={col.key}
+              className="sortable"
+              onClick={() => handleSort(col.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSort(col.key);
+                }
+              }}
+              tabIndex={0}
+              role="button"
+              aria-sort={
+                isSorted
+                  ? sortConfig.direction === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
+              title={`Sort by ${col.label}`}
+            >
+              <span className="th-content">
+                <span>{col.label}</span>
+                <span className="sort-arrow-slot">
+                  {arrow && (
+                    <span
+                      className="sort-arrow"
+                      data-testid={`sort-arrow-${col.key}`}
+                      aria-hidden="true"
+                    >
+                      {arrow}
+                    </span>
+                  )}
+                </span>
+              </span>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
 
   return (
     <div className="app-container">
+      {/* Header */}
       <header className="header">
-        <h1 className="title">🏀 Recent NBA Game Logs</h1>
-        <h3>Most recent 20 games</h3>
+        <div>
+          <h1 className="title">🏀 NBA Games & Matchups</h1>
+          <p className="subtitle">
+            Live box scores & player stats from MongoDB <code>{status?.database || "stats"}.{status?.collection || "games"}</code>
+          </p>
+        </div>
         {status && (
           <span
             className={`status-badge ${
@@ -116,27 +278,71 @@ function App() {
             }`}
           >
             {status.mode === "mongodb"
-              ? "🟢 Connected to MongoDB"
+              ? `🟢 Live MongoDB (${status.database}.${status.collection})`
               : "🟡 Demo Mode (In-Memory)"}
           </span>
         )}
       </header>
 
+      {/* Demo Mode Notice */}
       {status && status.mode === "fallback" && (
         <div className="banner">
-          <strong>Demo Mode Active:</strong> Showing 10 sample game logs from
-          memory. To connect to a live database, update <code>MONGODB_URI</code>{" "}
-          in your <code>.env</code> file and restart the server.
+          <strong>Demo Mode Active:</strong> Displaying sample NBA games from memory.
+          To connect to your live MongoDB cluster, ensure <code>MONGODB_URI</code> in{" "}
+          <code>.env</code> is active and restart the server.
         </div>
       )}
 
+      {/* Navigation Controls & Filters */}
+      <div className="controls-bar">
+        <div className="tab-group" role="tablist">
+          <button
+            className={`tab-btn ${activeTab === "matchups" ? "active" : ""}`}
+            onClick={() => setActiveTab("matchups")}
+            role="tab"
+            aria-selected={activeTab === "matchups"}
+          >
+            🏀 Game Matchups ({games.length})
+          </button>
+          <button
+            className={`tab-btn ${activeTab === "players" ? "active" : ""}`}
+            onClick={() => setActiveTab("players")}
+            role="tab"
+            aria-selected={activeTab === "players"}
+          >
+            👤 All Players Leaderboard ({allPlayers.length})
+          </button>
+        </div>
+
+        {activeTab === "matchups" && games.length > 1 && (
+          <div className="filter-group">
+            <label htmlFor="game-filter">Filter Game:</label>
+            <select
+              id="game-filter"
+              value={selectedGameFilter}
+              onChange={(e) => setSelectedGameFilter(e.target.value)}
+              className="game-select"
+            >
+              <option value="all">All Matchups ({games.length})</option>
+              {games.map((g) => (
+                <option key={g.game_id || g._id} value={g.game_id}>
+                  Game #{g.game_id}: {g.away_team?.team_name} @ {g.home_team?.team_name} ({g.game_date})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Loading Indicator */}
       {loading && (
         <div className="card loading-container">
           <div className="spinner" />
-          <p>Loading NBA game logs...</p>
+          <p>Loading NBA games & box scores...</p>
         </div>
       )}
 
+      {/* Error Message */}
       {error && !loading && (
         <div className="error-box">
           <p style={{ margin: "0 0 0.75rem 0", fontWeight: "600" }}>
@@ -153,72 +359,133 @@ function App() {
         </div>
       )}
 
-      {!loading && !error && (
+      {/* View: Game Matchups & Box Scores */}
+      {!loading && !error && activeTab === "matchups" && (
+        <div className="games-container">
+          {filteredGames.length === 0 ? (
+            <div className="card empty-state">No games found.</div>
+          ) : (
+            filteredGames.map((game) => {
+              // Calculate or use enriched team scores
+              const homeTeam = game.home_team || {};
+              const awayTeam = game.away_team || {};
+
+              let homeScore = game.home_score ?? 0;
+              let awayScore = game.away_score ?? 0;
+
+              if (!game.home_score && !game.away_score) {
+                (game.players || []).forEach((p) => {
+                  const pts = p.stats?.points || 0;
+                  if (p.team_id === homeTeam.team_id) homeScore += pts;
+                  if (p.team_id === awayTeam.team_id) awayScore += pts;
+                });
+              }
+
+              // Transform game players for box score table
+              const gameBoxScorePlayers = (game.players || []).map((p) => ({
+                _id: p.player_id,
+                player_id: p.player_id,
+                player: p.name,
+                team: p.team_id === homeTeam.team_id ? homeTeam.team_name : awayTeam.team_name,
+                points: p.stats?.points ?? 0,
+                rebounds: p.stats?.rebounds ?? 0,
+                assists: p.stats?.assists ?? 0,
+                steals: p.stats?.steals ?? 0,
+                blocks: p.stats?.blocks ?? 0,
+                minutes: p.stats?.minutes ?? 0,
+              }));
+
+              const sortedGamePlayers = sortRecords(gameBoxScorePlayers, sortConfig);
+
+              return (
+                <div key={game._id || game.game_id} className="game-card">
+                  {/* Game Scoreboard Header */}
+                  <div className="scoreboard-header">
+                    <div className="game-meta">
+                      <span className="game-badge">Game #{game.game_id}</span>
+                      <span className="game-date">
+                        📅 {new Date(game.game_date + "T00:00:00").toLocaleDateString(undefined, {
+                          weekday: "short",
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="matchup-banner">
+                      <div className="team-box away">
+                        <span className="team-role">AWAY</span>
+                        <h2 className="team-title">{awayTeam.team_name}</h2>
+                        <span className="team-score">{awayScore}</span>
+                      </div>
+
+                      <div className="vs-divider">
+                        <span className="vs-pill">@</span>
+                        <span className="final-label">FINAL</span>
+                      </div>
+
+                      <div className="team-box home">
+                        <span className="team-role">HOME</span>
+                        <h2 className="team-title">{homeTeam.team_name}</h2>
+                        <span className="team-score">{homeScore}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Game Box Score Table */}
+                  <div className="boxscore-section">
+                    <h3 className="section-title">📊 Box Score</h3>
+                    <div className="table-wrapper">
+                      <table>
+                        {renderSortableHeaders(GAME_BOXSCORE_COLUMNS)}
+                        <tbody>
+                          {sortedGamePlayers.map((player) => (
+                            <tr key={player._id}>
+                              <td className="player-name">{player.player}</td>
+                              <td>
+                                <span className="team-pill">{player.team}</span>
+                              </td>
+                              <td className="points-highlight">{player.points}</td>
+                              <td>{player.rebounds}</td>
+                              <td>{player.assists}</td>
+                              <td>{player.steals}</td>
+                              <td>{player.blocks}</td>
+                              <td>{player.minutes}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* View: All Players Leaderboard */}
+      {!loading && !error && activeTab === "players" && (
         <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">👤 All Players Statistics</h2>
+            <p className="card-subtitle">
+              Comprehensive player stats across all recorded games. Click any column header to sort.
+            </p>
+          </div>
           <div className="table-wrapper">
             <table>
-              <thead>
-                <tr>
-                  {COLUMNS.map((col) => {
-                    const isSorted = sortConfig.key === col.key;
-                    const arrow = isSorted
-                      ? sortConfig.direction === "asc"
-                        ? "▲"
-                        : sortConfig.direction === "desc"
-                        ? "▼"
-                        : null
-                      : null;
-
-                    return (
-                      <th
-                        key={col.key}
-                        className="sortable"
-                        onClick={() => handleSort(col.key)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleSort(col.key);
-                          }
-                        }}
-                        tabIndex={0}
-                        role="button"
-                        aria-sort={
-                          isSorted
-                            ? sortConfig.direction === "asc"
-                              ? "ascending"
-                              : "descending"
-                            : "none"
-                        }
-                        title={`Sort by ${col.label}`}
-                      >
-                        <span className="th-content">
-                          <span>{col.label}</span>
-                          <span className="sort-arrow-slot">
-                            {arrow && (
-                              <span
-                                className="sort-arrow"
-                                data-testid={`sort-arrow-${col.key}`}
-                                aria-hidden="true"
-                              >
-                                {arrow}
-                              </span>
-                            )}
-                          </span>
-                        </span>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
+              {renderSortableHeaders(ALL_PLAYERS_COLUMNS)}
               <tbody>
-                {sortedLogs.length === 0 ? (
+                {sortedPlayers.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: "center", padding: "2rem" }}>
-                      No game logs found.
+                    <td colSpan="10" style={{ textAlign: "center", padding: "2rem" }}>
+                      No player statistics found.
                     </td>
                   </tr>
                 ) : (
-                  sortedLogs.map((log) => (
+                  sortedPlayers.map((log) => (
                     <tr key={log._id}>
                       <td className="player-name">{log.player}</td>
                       <td>
@@ -228,9 +495,12 @@ function App() {
                       <td className="points-highlight">{log.points}</td>
                       <td>{log.rebounds}</td>
                       <td>{log.assists}</td>
+                      <td>{log.steals}</td>
+                      <td>{log.blocks}</td>
+                      <td>{log.minutes}</td>
                       <td>
-                        {log.gameDate
-                          ? new Date(log.gameDate).toLocaleDateString()
+                        {log.game_date
+                          ? new Date(log.game_date + "T00:00:00").toLocaleDateString()
                           : "N/A"}
                       </td>
                     </tr>

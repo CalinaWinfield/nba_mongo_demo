@@ -26,17 +26,27 @@ if (!uri) {
   process.exit(1);
 }
 
-const DB_NAME = "nba_stats"; // logical namespace for this app inside Atlas
-const COLLECTION = "game_logs"; // one document = one player's box score for one game
+const DB_NAME = process.env.DB_NAME || "stats";
+const COLLECTION = process.env.COLLECTION || "games";
+const { getSampleGames, getSampleGameLogs } = require("./sampleData");
 
-// Prepare sample data (convert string IDs to ObjectId for MongoDB storage)
-const gameLogDocs = getSampleGameLogs().map((doc) => {
-  const { _id, ...rest } = doc;
-  return {
-    _id: new ObjectId(_id),
-    ...rest,
-  };
-});
+// Prepare sample data
+const sampleDocs =
+  COLLECTION === "games"
+    ? getSampleGames().map((doc) => {
+        const { _id, ...rest } = doc;
+        return {
+          _id: new ObjectId(_id),
+          ...rest,
+        };
+      })
+    : getSampleGameLogs().map((doc) => {
+        const { _id, ...rest } = doc;
+        return {
+          _id: new ObjectId(_id),
+          ...rest,
+        };
+      });
 
 // ---------------------------------------------------------------------------
 // Main — all Atlas operations happen here
@@ -62,8 +72,8 @@ async function main() {
     await collection.deleteMany({});
 
     // ── Insert ──────────────────────────────────────────────────────────────
-    console.log(`📥  Inserting ${gameLogDocs.length} game-log documents...`);
-    const insertResult = await collection.insertMany(gameLogDocs);
+    console.log(`📥  Inserting ${sampleDocs.length} documents into ${DB_NAME}.${COLLECTION}...`);
+    const insertResult = await collection.insertMany(sampleDocs);
     console.log(`✅  Inserted ${insertResult.insertedCount} documents.\n`);
 
     // Save one _id now so we can do a single-document lookup by it later.
