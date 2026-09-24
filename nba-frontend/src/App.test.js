@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import App from "./App";
 
 const mockGames = [
@@ -34,6 +34,29 @@ const mockGames = [
         name: "Dejounte Murray",
         team_id: 1,
         stats: { points: 20, rebounds: 6, assists: 5, steals: 1, blocks: 0, minutes: 35 },
+      },
+    ],
+  },
+  {
+    _id: "game2",
+    game_id: 41,
+    game_date: "2026-01-15",
+    home_team: { team_id: 3, team_name: "San Antonio Spurs" },
+    away_team: { team_id: 9, team_name: "Milwaukee Bucks" },
+    home_score: 48,
+    away_score: 64,
+    players: [
+      {
+        player_id: 105,
+        name: "Victor Wembanyama",
+        team_id: 3,
+        stats: { points: 31, rebounds: 11, assists: 4, steals: 1, blocks: 3, minutes: 33 },
+      },
+      {
+        player_id: 109,
+        name: "Giannis Antetokounmpo",
+        team_id: 9,
+        stats: { points: 35, rebounds: 12, assists: 5, steals: 1, blocks: 1, minutes: 36 },
       },
     ],
   },
@@ -81,8 +104,9 @@ test("displays team scores and player box score", async () => {
     expect(screen.getByText("Nikola Jokic")).toBeInTheDocument();
   });
   expect(screen.getByText("60")).toBeInTheDocument();
-  expect(screen.getByText("48")).toBeInTheDocument();
+  expect(screen.getAllByText("48").length).toBeGreaterThan(0);
   expect(screen.getByText("Trae Young")).toBeInTheDocument();
+  expect(screen.getByText("Victor Wembanyama")).toBeInTheDocument();
 });
 
 test("cycles sorting and arrows when clicking column header in box score", async () => {
@@ -91,8 +115,14 @@ test("cycles sorting and arrows when clicking column header in box score", async
     expect(screen.getByText("Nikola Jokic")).toBeInTheDocument();
   });
 
+  const tables = screen.getAllByRole("table");
+  const firstTable = tables[0];
+
   const getRenderedPlayers = () =>
-    screen.getAllByRole("row").slice(1).map((row) => row.querySelector(".player-name").textContent);
+    within(firstTable)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelector(".player-name").textContent);
 
   // Initial order is original players order
   expect(getRenderedPlayers()).toEqual([
@@ -101,13 +131,13 @@ test("cycles sorting and arrows when clicking column header in box score", async
     "Trae Young",
     "Dejounte Murray",
   ]);
-  expect(screen.queryByTestId("sort-arrow-points")).toBeNull();
+  expect(within(firstTable).queryByTestId("sort-arrow-points")).toBeNull();
 
-  const ptsHeader = screen.getByRole("button", { name: /pts/i });
+  const ptsHeader = within(firstTable).getByRole("button", { name: /pts/i });
 
   // 1st click: Ascending (20, 26, 28, 34) -> Dejounte, Jamal, Trae, Nikola
   fireEvent.click(ptsHeader);
-  expect(screen.getByTestId("sort-arrow-points")).toHaveTextContent("▲");
+  expect(within(firstTable).getByTestId("sort-arrow-points")).toHaveTextContent("▲");
   expect(getRenderedPlayers()).toEqual([
     "Dejounte Murray",
     "Jamal Murray",
@@ -117,7 +147,7 @@ test("cycles sorting and arrows when clicking column header in box score", async
 
   // 2nd click: Descending (34, 28, 26, 20) -> Nikola, Trae, Jamal, Dejounte
   fireEvent.click(ptsHeader);
-  expect(screen.getByTestId("sort-arrow-points")).toHaveTextContent("▼");
+  expect(within(firstTable).getByTestId("sort-arrow-points")).toHaveTextContent("▼");
   expect(getRenderedPlayers()).toEqual([
     "Nikola Jokic",
     "Trae Young",
@@ -127,13 +157,48 @@ test("cycles sorting and arrows when clicking column header in box score", async
 
   // 3rd click: Reset
   fireEvent.click(ptsHeader);
-  expect(screen.queryByTestId("sort-arrow-points")).toBeNull();
+  expect(within(firstTable).queryByTestId("sort-arrow-points")).toBeNull();
   expect(getRenderedPlayers()).toEqual([
     "Nikola Jokic",
     "Jamal Murray",
     "Trae Young",
     "Dejounte Murray",
   ]);
+});
+
+test("sorting one table does not affect other tables on the page", async () => {
+  render(<App />);
+  await waitFor(() => {
+    expect(screen.getByText("Nikola Jokic")).toBeInTheDocument();
+    expect(screen.getByText("Victor Wembanyama")).toBeInTheDocument();
+  });
+
+  const tables = screen.getAllByRole("table");
+  expect(tables.length).toBe(2);
+
+  const table1 = tables[0];
+  const table2 = tables[1];
+
+  const getTable2Players = () =>
+    within(table2)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelector(".player-name").textContent);
+
+  // Table 2 initially has Victor (31) then Giannis (35)
+  expect(getTable2Players()).toEqual(["Victor Wembanyama", "Giannis Antetokounmpo"]);
+  expect(within(table2).queryByTestId("sort-arrow-points")).toBeNull();
+
+  // Click PTS header on Table 1
+  const table1PtsHeader = within(table1).getByRole("button", { name: /pts/i });
+  fireEvent.click(table1PtsHeader);
+
+  // Table 1 now has sort arrow ▲
+  expect(within(table1).getByTestId("sort-arrow-points")).toHaveTextContent("▲");
+
+  // Table 2 MUST NOT have any sort arrow and its rows must remain unchanged
+  expect(within(table2).queryByTestId("sort-arrow-points")).toBeNull();
+  expect(getTable2Players()).toEqual(["Victor Wembanyama", "Giannis Antetokounmpo"]);
 });
 
 test("switches between Game Matchups and All Players tabs", async () => {

@@ -28,8 +28,27 @@ const GAME_BOXSCORE_COLUMNS = [
   { key: "minutes", label: "MIN" },
 ];
 
+/**
+ * Calculates next sort configuration on click: asc -> desc -> reset (null)
+ */
+function getNextSortConfig(prev, key) {
+  if (prev.key !== key) {
+    return { key, direction: "asc" };
+  }
+  if (prev.direction === "asc") {
+    return { key, direction: "desc" };
+  }
+  if (prev.direction === "desc") {
+    return { key: null, direction: null };
+  }
+  return { key, direction: "asc" };
+}
+
+/**
+ * Sorts array of records based on sort configuration
+ */
 function sortRecords(items, sortConfig) {
-  if (!sortConfig.key || !sortConfig.direction) {
+  if (!sortConfig || !sortConfig.key || !sortConfig.direction) {
     return items;
   }
 
@@ -60,6 +79,180 @@ function sortRecords(items, sortConfig) {
   });
 }
 
+/**
+ * Reusable sortable table header component that reflects only its own table's sort state
+ */
+function SortableTableHeader({ columns, sortConfig, onSort }) {
+  return (
+    <thead>
+      <tr>
+        {columns.map((col) => {
+          const isSorted = sortConfig && sortConfig.key === col.key;
+          const arrow = isSorted
+            ? sortConfig.direction === "asc"
+              ? "▲"
+              : sortConfig.direction === "desc"
+              ? "▼"
+              : null
+            : null;
+
+          return (
+            <th
+              key={col.key}
+              className="sortable"
+              onClick={() => onSort(col.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSort(col.key);
+                }
+              }}
+              tabIndex={0}
+              role="button"
+              aria-sort={
+                isSorted
+                  ? sortConfig.direction === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+              }
+              title={`Sort by ${col.label}`}
+            >
+              <span className="th-content">
+                <span>{col.label}</span>
+                <span className="sort-arrow-slot">
+                  {arrow && (
+                    <span
+                      className="sort-arrow"
+                      data-testid={`sort-arrow-${col.key}`}
+                      aria-hidden="true"
+                    >
+                      {arrow}
+                    </span>
+                  )}
+                </span>
+              </span>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
+}
+
+/**
+ * Individual Game Card with its own isolated table sorting state
+ */
+function GameCard({ game }) {
+  // Each game card maintains its own independent sort configuration
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+
+  const homeTeam = game.home_team || {};
+  const awayTeam = game.away_team || {};
+
+  let homeScore = game.home_score ?? 0;
+  let awayScore = game.away_score ?? 0;
+
+  if (!game.home_score && !game.away_score) {
+    (game.players || []).forEach((p) => {
+      const pts = p.stats?.points || 0;
+      if (p.team_id === homeTeam.team_id) homeScore += pts;
+      if (p.team_id === awayTeam.team_id) awayScore += pts;
+    });
+  }
+
+  const gamePlayers = useMemo(() => {
+    return (game.players || []).map((p) => ({
+      _id: p.player_id,
+      player_id: p.player_id,
+      player: p.name,
+      team: p.team_id === homeTeam.team_id ? homeTeam.team_name : awayTeam.team_name,
+      points: p.stats?.points ?? 0,
+      rebounds: p.stats?.rebounds ?? 0,
+      assists: p.stats?.assists ?? 0,
+      steals: p.stats?.steals ?? 0,
+      blocks: p.stats?.blocks ?? 0,
+      minutes: p.stats?.minutes ?? 0,
+    }));
+  }, [game, homeTeam, awayTeam]);
+
+  const sortedGamePlayers = useMemo(() => {
+    return sortRecords(gamePlayers, sortConfig);
+  }, [gamePlayers, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => getNextSortConfig(prev, key));
+  };
+
+  return (
+    <div className="game-card">
+      {/* Game Scoreboard Header */}
+      <div className="scoreboard-header">
+        <div className="game-meta">
+          <span className="game-badge">Game #{game.game_id}</span>
+          <span className="game-date">
+            📅 {new Date(game.game_date + "T00:00:00").toLocaleDateString(undefined, {
+              weekday: "short",
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+
+        <div className="matchup-banner">
+          <div className="team-box away">
+            <span className="team-role">AWAY</span>
+            <h2 className="team-title">{awayTeam.team_name}</h2>
+            <span className="team-score">{awayScore}</span>
+          </div>
+
+          <div className="vs-divider">
+            <span className="vs-pill">@</span>
+            <span className="final-label">FINAL</span>
+          </div>
+
+          <div className="team-box home">
+            <span className="team-role">HOME</span>
+            <h2 className="team-title">{homeTeam.team_name}</h2>
+            <span className="team-score">{homeScore}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Game Box Score Table */}
+      <div className="boxscore-section">
+        <h3 className="section-title">📊 Box Score</h3>
+        <div className="table-wrapper">
+          <table>
+            <SortableTableHeader
+              columns={GAME_BOXSCORE_COLUMNS}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+            />
+            <tbody>
+              {sortedGamePlayers.map((player) => (
+                <tr key={player._id}>
+                  <td className="player-name">{player.player}</td>
+                  <td>
+                    <span className="team-pill">{player.team}</span>
+                  </td>
+                  <td className="points-highlight">{player.points}</td>
+                  <td>{player.rebounds}</td>
+                  <td>{player.assists}</td>
+                  <td>{player.steals}</td>
+                  <td>{player.blocks}</td>
+                  <td>{player.minutes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [games, setGames] = useState([]);
   const [status, setStatus] = useState(null);
@@ -70,8 +263,11 @@ function App() {
   const [activeTab, setActiveTab] = useState("matchups");
   const [selectedGameFilter, setSelectedGameFilter] = useState("all");
 
-  // Sorting state for player tables
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  // Independent sorting state for the All Players Leaderboard table
+  const [leaderboardSortConfig, setLeaderboardSortConfig] = useState({
+    key: null,
+    direction: null,
+  });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -95,7 +291,6 @@ function App() {
           throw new Error(`Server returned HTTP ${logsRes.status}`);
         }
         const logsData = await logsRes.json();
-        // If data is already games array
         if (Array.isArray(logsData) && logsData[0]?.home_team) {
           loadedGames = logsData;
         } else {
@@ -142,22 +337,8 @@ function App() {
     fetchData();
   }, [fetchData]);
 
-  const handleSort = (key) => {
-    setSortConfig((prev) => {
-      // 1st click on new column -> ascending
-      if (prev.key !== key) {
-        return { key, direction: "asc" };
-      }
-      // 1st click was asc -> 2nd click: descending
-      if (prev.direction === "asc") {
-        return { key, direction: "desc" };
-      }
-      // 2nd click was desc -> 3rd click: reset
-      if (prev.direction === "desc") {
-        return { key: null, direction: null };
-      }
-      return { key, direction: "asc" };
-    });
+  const handleLeaderboardSort = (key) => {
+    setLeaderboardSortConfig((prev) => getNextSortConfig(prev, key));
   };
 
   // Flatten games into individual player records for leaderboard
@@ -193,73 +374,16 @@ function App() {
     return list;
   }, [games]);
 
-  // Filtered games based on selection
+  // Filtered games based on dropdown selection
   const filteredGames = useMemo(() => {
     if (selectedGameFilter === "all") return games;
     return games.filter((g) => String(g.game_id) === String(selectedGameFilter));
   }, [games, selectedGameFilter]);
 
   // Sorted players for All Players tab
-  const sortedPlayers = useMemo(() => {
-    return sortRecords(allPlayers, sortConfig);
-  }, [allPlayers, sortConfig]);
-
-  // Helper to render sortable table headers
-  const renderSortableHeaders = (columns) => (
-    <thead>
-      <tr>
-        {columns.map((col) => {
-          const isSorted = sortConfig.key === col.key;
-          const arrow = isSorted
-            ? sortConfig.direction === "asc"
-              ? "▲"
-              : sortConfig.direction === "desc"
-              ? "▼"
-              : null
-            : null;
-
-          return (
-            <th
-              key={col.key}
-              className="sortable"
-              onClick={() => handleSort(col.key)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleSort(col.key);
-                }
-              }}
-              tabIndex={0}
-              role="button"
-              aria-sort={
-                isSorted
-                  ? sortConfig.direction === "asc"
-                    ? "ascending"
-                    : "descending"
-                  : "none"
-              }
-              title={`Sort by ${col.label}`}
-            >
-              <span className="th-content">
-                <span>{col.label}</span>
-                <span className="sort-arrow-slot">
-                  {arrow && (
-                    <span
-                      className="sort-arrow"
-                      data-testid={`sort-arrow-${col.key}`}
-                      aria-hidden="true"
-                    >
-                      {arrow}
-                    </span>
-                  )}
-                </span>
-              </span>
-            </th>
-          );
-        })}
-      </tr>
-    </thead>
-  );
+  const sortedLeaderboardPlayers = useMemo(() => {
+    return sortRecords(allPlayers, leaderboardSortConfig);
+  }, [allPlayers, leaderboardSortConfig]);
 
   return (
     <div className="app-container">
@@ -365,102 +489,9 @@ function App() {
           {filteredGames.length === 0 ? (
             <div className="card empty-state">No games found.</div>
           ) : (
-            filteredGames.map((game) => {
-              // Calculate or use enriched team scores
-              const homeTeam = game.home_team || {};
-              const awayTeam = game.away_team || {};
-
-              let homeScore = game.home_score ?? 0;
-              let awayScore = game.away_score ?? 0;
-
-              if (!game.home_score && !game.away_score) {
-                (game.players || []).forEach((p) => {
-                  const pts = p.stats?.points || 0;
-                  if (p.team_id === homeTeam.team_id) homeScore += pts;
-                  if (p.team_id === awayTeam.team_id) awayScore += pts;
-                });
-              }
-
-              // Transform game players for box score table
-              const gameBoxScorePlayers = (game.players || []).map((p) => ({
-                _id: p.player_id,
-                player_id: p.player_id,
-                player: p.name,
-                team: p.team_id === homeTeam.team_id ? homeTeam.team_name : awayTeam.team_name,
-                points: p.stats?.points ?? 0,
-                rebounds: p.stats?.rebounds ?? 0,
-                assists: p.stats?.assists ?? 0,
-                steals: p.stats?.steals ?? 0,
-                blocks: p.stats?.blocks ?? 0,
-                minutes: p.stats?.minutes ?? 0,
-              }));
-
-              const sortedGamePlayers = sortRecords(gameBoxScorePlayers, sortConfig);
-
-              return (
-                <div key={game._id || game.game_id} className="game-card">
-                  {/* Game Scoreboard Header */}
-                  <div className="scoreboard-header">
-                    <div className="game-meta">
-                      <span className="game-badge">Game #{game.game_id}</span>
-                      <span className="game-date">
-                        📅 {new Date(game.game_date + "T00:00:00").toLocaleDateString(undefined, {
-                          weekday: "short",
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
-                    </div>
-
-                    <div className="matchup-banner">
-                      <div className="team-box away">
-                        <span className="team-role">AWAY</span>
-                        <h2 className="team-title">{awayTeam.team_name}</h2>
-                        <span className="team-score">{awayScore}</span>
-                      </div>
-
-                      <div className="vs-divider">
-                        <span className="vs-pill">@</span>
-                        <span className="final-label">FINAL</span>
-                      </div>
-
-                      <div className="team-box home">
-                        <span className="team-role">HOME</span>
-                        <h2 className="team-title">{homeTeam.team_name}</h2>
-                        <span className="team-score">{homeScore}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Game Box Score Table */}
-                  <div className="boxscore-section">
-                    <h3 className="section-title">📊 Box Score</h3>
-                    <div className="table-wrapper">
-                      <table>
-                        {renderSortableHeaders(GAME_BOXSCORE_COLUMNS)}
-                        <tbody>
-                          {sortedGamePlayers.map((player) => (
-                            <tr key={player._id}>
-                              <td className="player-name">{player.player}</td>
-                              <td>
-                                <span className="team-pill">{player.team}</span>
-                              </td>
-                              <td className="points-highlight">{player.points}</td>
-                              <td>{player.rebounds}</td>
-                              <td>{player.assists}</td>
-                              <td>{player.steals}</td>
-                              <td>{player.blocks}</td>
-                              <td>{player.minutes}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            filteredGames.map((game) => (
+              <GameCard key={game.game_id || game._id} game={game} />
+            ))
           )}
         </div>
       )}
@@ -476,16 +507,20 @@ function App() {
           </div>
           <div className="table-wrapper">
             <table>
-              {renderSortableHeaders(ALL_PLAYERS_COLUMNS)}
+              <SortableTableHeader
+                columns={ALL_PLAYERS_COLUMNS}
+                sortConfig={leaderboardSortConfig}
+                onSort={handleLeaderboardSort}
+              />
               <tbody>
-                {sortedPlayers.length === 0 ? (
+                {sortedLeaderboardPlayers.length === 0 ? (
                   <tr>
                     <td colSpan="10" style={{ textAlign: "center", padding: "2rem" }}>
                       No player statistics found.
                     </td>
                   </tr>
                 ) : (
-                  sortedPlayers.map((log) => (
+                  sortedLeaderboardPlayers.map((log) => (
                     <tr key={log._id}>
                       <td className="player-name">{log.player}</td>
                       <td>
