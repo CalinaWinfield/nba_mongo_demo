@@ -1,6 +1,6 @@
 /**
  * sampleData.js — NBA sample games & player documents
- * Matches the schema in stats.games (Home/Away team matchup with nested player box scores)
+ * Matches the schema in stats.games (Home/Away team matchup with actual team scores and player box scores)
  */
 
 function getSampleGames() {
@@ -12,10 +12,12 @@ function getSampleGames() {
       home_team: {
         team_id: 8,
         team_name: "Denver Nuggets",
+        team_score: 87,
       },
       away_team: {
         team_id: 1,
         team_name: "Atlanta Hawks",
+        team_score: 110,
       },
       players: [
         {
@@ -79,10 +81,12 @@ function getSampleGames() {
       home_team: {
         team_id: 3,
         team_name: "San Antonio Spurs",
+        team_score: 119,
       },
       away_team: {
         team_id: 9,
         team_name: "Milwaukee Bucks",
+        team_score: 101,
       },
       players: [
         {
@@ -146,10 +150,12 @@ function getSampleGames() {
       home_team: {
         team_id: 1,
         team_name: "Atlanta Hawks",
+        team_score: 122,
       },
       away_team: {
         team_id: 9,
         team_name: "Milwaukee Bucks",
+        team_score: 99,
       },
       players: [
         {
@@ -210,23 +216,24 @@ function getSampleGames() {
 }
 
 /**
- * Calculates team point totals for each game document
+ * Returns team scores directly from home_team.team_score and away_team.team_score in database
  */
 function enrichGameWithScores(game) {
-  const homeTeamId = game.home_team?.team_id;
-  const awayTeamId = game.away_team?.team_id;
+  const homeScore =
+    game.home_team?.team_score ??
+    game.home_score ??
+    (game.players || []).reduce(
+      (sum, p) => (p.team_id === game.home_team?.team_id ? sum + (p.stats?.points || 0) : sum),
+      0
+    );
 
-  let homeScore = 0;
-  let awayScore = 0;
-
-  (game.players || []).forEach((p) => {
-    const pts = p.stats?.points || 0;
-    if (p.team_id === homeTeamId) {
-      homeScore += pts;
-    } else if (p.team_id === awayTeamId) {
-      awayScore += pts;
-    }
-  });
+  const awayScore =
+    game.away_team?.team_score ??
+    game.away_score ??
+    (game.players || []).reduce(
+      (sum, p) => (p.team_id === game.away_team?.team_id ? sum + (p.stats?.points || 0) : sum),
+      0
+    );
 
   return {
     ...game,

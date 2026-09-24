@@ -150,16 +150,22 @@ function GameCard({ game }) {
   const homeTeam = game.home_team || {};
   const awayTeam = game.away_team || {};
 
-  let homeScore = game.home_score ?? 0;
-  let awayScore = game.away_score ?? 0;
+  // Display actual team score from database
+  const homeScore =
+    homeTeam.team_score ??
+    game.home_score ??
+    (game.players || []).reduce(
+      (sum, p) => (p.team_id === homeTeam.team_id ? sum + (p.stats?.points || 0) : sum),
+      0
+    );
 
-  if (!game.home_score && !game.away_score) {
-    (game.players || []).forEach((p) => {
-      const pts = p.stats?.points || 0;
-      if (p.team_id === homeTeam.team_id) homeScore += pts;
-      if (p.team_id === awayTeam.team_id) awayScore += pts;
-    });
-  }
+  const awayScore =
+    awayTeam.team_score ??
+    game.away_score ??
+    (game.players || []).reduce(
+      (sum, p) => (p.team_id === awayTeam.team_id ? sum + (p.stats?.points || 0) : sum),
+      0
+    );
 
   const gamePlayers = useMemo(() => {
     return (game.players || []).map((p) => ({

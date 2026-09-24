@@ -6,10 +6,8 @@ const mockGames = [
     _id: "game1",
     game_id: 38,
     game_date: "2026-01-09",
-    home_team: { team_id: 8, team_name: "Denver Nuggets" },
-    away_team: { team_id: 1, team_name: "Atlanta Hawks" },
-    home_score: 60,
-    away_score: 48,
+    home_team: { team_id: 8, team_name: "Denver Nuggets", team_score: 87 },
+    away_team: { team_id: 1, team_name: "Atlanta Hawks", team_score: 110 },
     players: [
       {
         player_id: 107,
@@ -41,10 +39,8 @@ const mockGames = [
     _id: "game2",
     game_id: 41,
     game_date: "2026-01-15",
-    home_team: { team_id: 3, team_name: "San Antonio Spurs" },
-    away_team: { team_id: 9, team_name: "Milwaukee Bucks" },
-    home_score: 48,
-    away_score: 64,
+    home_team: { team_id: 3, team_name: "San Antonio Spurs", team_score: 119 },
+    away_team: { team_id: 9, team_name: "Milwaukee Bucks", team_score: 101 },
     players: [
       {
         player_id: 105,
@@ -98,13 +94,16 @@ test("renders NBA Games & Matchups heading and matchup teams", async () => {
   });
 });
 
-test("displays team scores and player box score", async () => {
+test("displays actual team scores and player box score", async () => {
   render(<App />);
   await waitFor(() => {
     expect(screen.getByText("Nikola Jokic")).toBeInTheDocument();
   });
-  expect(screen.getByText("60")).toBeInTheDocument();
-  expect(screen.getAllByText("48").length).toBeGreaterThan(0);
+  // Actual team scores from database
+  expect(screen.getByText("87")).toBeInTheDocument();
+  expect(screen.getByText("110")).toBeInTheDocument();
+  expect(screen.getByText("119")).toBeInTheDocument();
+  expect(screen.getByText("101")).toBeInTheDocument();
   expect(screen.getByText("Trae Young")).toBeInTheDocument();
   expect(screen.getByText("Victor Wembanyama")).toBeInTheDocument();
 });
