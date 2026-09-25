@@ -1,4 +1,4 @@
-# 🏀 NBA Stats Web App
+# 🏀 Simple NBA Stats MongoDB Web App
 
 A full-stack NBA statistics application built with **React 19**, **Express**, and **MongoDB Atlas** (with automatic in-memory fallback).
 
