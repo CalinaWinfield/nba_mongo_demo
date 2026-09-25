@@ -6,7 +6,7 @@ A full-stack NBA statistics application built with **React 19**, **Express**, an
 
 ## ✨ Features
 
-- **Welcome Greeting**: Calina's personalized component (`MyComp`) welcoming visitors to the NBA Stats Web App.
+- **Welcome Greeting**: My personalized component (`MyComp`) welcoming visitors to my NBA Stats Web App.
 - **Live MongoDB Atlas Integration**: Connects directly to the `nba_stats` database and streams game logs from the `game_logs` collection.
 - **Interactive Stats Table**:
   - Displays player performance: Points (PTS), Rebounds (REB), Assists (AST), Player, Team, Opponent, and Game Date.
