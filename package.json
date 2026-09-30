@@ -1,5 +1,5 @@
 {
-  "name": "nba-stats-db",
+  "name": "nba_mongo_demo",
   "version": "1.0.0",
   "private": true,
   "description": "NBA Stats Web App bootstrapped with Create React App and MongoDB",

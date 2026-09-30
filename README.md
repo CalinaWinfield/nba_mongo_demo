@@ -86,7 +86,7 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/?appName=nbaStats
 ## 📂 Project Structure
 
 ```text
-nba-stats-db/
+nba_mongo_demo/
 ├── .env                # Port and MongoDB Atlas configuration
 ├── package.json        # Dependencies, scripts, and proxy settings
 ├── server.js           # Express API server & MongoDB Atlas connector
